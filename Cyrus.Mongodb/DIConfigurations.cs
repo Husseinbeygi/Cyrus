@@ -1,38 +1,98 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Cyrus.DDD;
+using Cyrus.Mongodb.Contracts;
+using Cyrus.Mongodb.Repository;
+using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using MongoDB.Driver.Core.Configuration;
+using System.Collections;
 using System.ComponentModel;
+using System.Text;
 
 namespace Cyrus.Mongodb;
 
 public static class DIConfigurations
 {
 	public static IServiceCollection AddMongoDb(this IServiceCollection services,
-											Func<IMongoDbOptions,IMongoDbOptions> buildOptions)
+											Func<IOptionBuilder, IOptionBuilder> buildOptions)
 	{
+		services.AddSingleton(buildOptions);
 
-		
+		var _opts = buildOptions(new OptionBuilder()).Build();
+
+		services.AddSingleton<IMongoClient>(opt =>
+		{
+			var options = opt.GetRequiredService<OptionBuilder>();
+			return new MongoClient(_opts.ConnectionString);
+		});
+
+		services.AddTransient(sp =>
+		{
+			var options = sp.GetRequiredService<MongoDbOptions>();
+			var client = sp.GetRequiredService<IMongoClient>();
+			return client.GetDatabase(options.Database);
+		});
+
+		return services;
+	}
+
+	public static IServiceCollection AddMongoRepository<TEntity>
+				(this IServiceCollection services,string collectionName) 
+						where TEntity : IAggregateRoot
+	{
+		services.AddTransient<IMongoRepository<TEntity>>(opt =>
+		{
+			var database = opt.GetRequiredService<IMongoDatabase>();
+			return new MongoRepository<TEntity>(database, collectionName);
+		});
 
 		return services;
 	}
 }
 
-
-public interface IMongoDbOptions 
+public interface IOptionBuilder
 {
-	IMongoDbOptions WithConnectionString(string connectionString);
-	IMongoDbOptions WithUserNameAndPassword(ConnectionStringScheme scheme,string username,string password,int port = 27017);
+	IOptionBuilder WithConnectionString(string connectionString);
+	IOptionBuilder WithUserNameAndPassword(ConnectionStringScheme scheme, string username, string password, string host, int port = 27017);
+	MongoDbOptions Build();
 
 }
 
-public class MongoDbOptions : IMongoDbOptions
+public class OptionBuilder : IOptionBuilder
 {
-	public IMongoDbOptions WithConnectionString(string connectionString)
+	private MongoDbOptions _options;
+	public MongoDbOptions Build()
 	{
-		throw new NotImplementedException();
+		return _options;
 	}
 
-	public IMongoDbOptions WithUserNameAndPassword(ConnectionStringScheme scheme, string username, string password, int port = 27017)
+	public IOptionBuilder WithConnectionString(string connectionString)
 	{
-		throw new NotImplementedException();
+		_options.ConnectionString = connectionString;
+		return this;
 	}
+
+	public IOptionBuilder WithUserNameAndPassword(ConnectionStringScheme scheme, string username, string password, string host, int port = 27017)
+	{
+		var conn = new StringBuilder();
+		conn
+		.Append(scheme == ConnectionStringScheme.MongoDBPlusSrv ? "mongodb+srv://" : "mongodb://")
+		.Append(username)
+		.Append(":")
+		.Append(password)
+		.Append("@")
+		.Append(host)
+		.Append(":")
+		.Append(port);
+
+		_options.ConnectionString = conn.ToString();
+		return this;
+	}
+
+
+}
+
+public class MongoDbOptions
+{
+	public string ConnectionString { get; set; }
+	public string Database { get; set; }
 }
