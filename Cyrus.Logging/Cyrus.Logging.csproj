@@ -11,6 +11,7 @@
 		<Company>HusseinBeygi</Company>
 		<PackageProjectUrl>https://github.com/Husseinbeygi/Cyrus</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/Husseinbeygi/Cyrus</RepositoryUrl>
+		<Authors>HusseinBeygi</Authors>
 
 	</PropertyGroup>
 
