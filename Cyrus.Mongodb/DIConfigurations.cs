@@ -19,9 +19,10 @@ public static class DIConfigurations
 
 		var _opts = buildOptions(new OptionBuilder()).Build();
 
+		services.AddSingleton(_opts);
 		services.AddSingleton<IMongoClient>(opt =>
 		{
-			var options = opt.GetRequiredService<OptionBuilder>();
+			var options = opt.GetRequiredService<MongoDbOptions>();
 			return new MongoClient(_opts.ConnectionString);
 		});
 
@@ -54,12 +55,17 @@ public interface IOptionBuilder
 	IOptionBuilder WithConnectionString(string connectionString);
 	IOptionBuilder WithUserNameAndPassword(ConnectionStringScheme scheme, string username, string password, string host, int port = 27017);
 	MongoDbOptions Build();
-
+	IOptionBuilder WithDatabase(string database);
 }
 
 public class OptionBuilder : IOptionBuilder
 {
-	private MongoDbOptions _options;
+	private MongoDbOptions _options; 
+    public OptionBuilder()
+    {
+		_options = new MongoDbOptions();
+
+	}
 	public MongoDbOptions Build()
 	{
 		return _options;
@@ -69,6 +75,12 @@ public class OptionBuilder : IOptionBuilder
 	{
 		_options.ConnectionString = connectionString;
 		return this;
+	}
+
+	public IOptionBuilder WithDatabase(string database)
+	{
+		_options.Database = database;	
+		return this;	
 	}
 
 	public IOptionBuilder WithUserNameAndPassword(ConnectionStringScheme scheme, string username, string password, string host, int port = 27017)
